@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BB Bounce + MACD Cross — Position Sizer</title>
+<style>
+  :root {
+    --blue-dark:   #1F3864;
+    --blue-mid:    #2E5C8A;
+    --blue-light:  #EBF3FB;
+    --blue-accent: #4A90D9;
+    --green:       #00875A;
+    --green-bg:    #E3F6EF;
+    --red:         #C00000;
+    --red-bg:      #FDE8E8;
+    --amber:       #B45309;
+    --amber-bg:    #FEF3C7;
+    --elite:       #6D28D9;
+    --elite-bg:    #EDE9FE;
+    --super:       #0369A1;
+    --super-bg:    #E0F2FE;
+    --base:        #4A90D9;
+    --base-bg:     #EBF3FB;
+    --text:        #1A1A2E;
+    --text-muted:  #5A6A7A;
+    --border:      #CBD5E1;
+    --bg:          #F0F4FA;
+    --card:        #FFFFFF;
+    --shadow:      0 2px 12px rgba(31,56,100,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 48px;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--blue-dark);
+    color: #fff;
+    padding: 18px 24px 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.03em; }
+  header .subtitle { font-size: 0.78rem; opacity: 0.65; }
+  #data-status {
+    margin-left: auto;
+    font-size: 0.72rem;
+    opacity: 0.75;
+    white-space: nowrap;
+  }
+  #data-status.stale { color: #FCD34D; opacity: 1; }
+  #data-status.error { color: #FCA5A5; opacity: 1; }
+
+  /* ── Layout ── */
+  .container { max-width: 720px; margin: 0 auto; padding: 24px 16px 0; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 22px 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  /* ── Inputs ── */
+  .inputs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 480px) { .inputs-grid { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.full { grid-column: 1 / -1; }
+  label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+
+  input[type="number"], select {
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  input[type="number"]:focus, select:focus { border-color: var(--blue-accent); }
+
+  /* ── Ticker search combo ── */
+  .ticker-wrap { position: relative; }
+  #ticker-search {
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  #ticker-search:focus { border-color: var(--blue-accent); }
+  #ticker-search::placeholder { color: var(--text-muted); font-size: 0.88rem; }
+
+  .dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: #fff;
+    border: 1.5px solid var(--blue-accent);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  }
+  .dropdown.open { display: block; }
+  .dd-item {
+    padding: 9px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid #f0f4fa;
+  }
+  .dd-item:last-child { border-bottom: none; }
+  .dd-item:hover, .dd-item.active { background: var(--blue-light); }
+  .dd-sym { font-weight: 700; font-size: 0.9rem; min-width: 52px; }
+  .dd-name { color: var(--text-muted); font-size: 0.80rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dd-badge { margin-left: auto; flex-shrink: 0; }
+
+  /* ── Tier pills ── */
+  .tier-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tier-btn {
+    flex: 1;
+    min-width: 90px;
+    border: 2px solid transparent;
+    border-radius: 7px;
+    padding: 9px 6px 7px;
+    cursor: pointer;
+    text-align: center;
+    background: var(--card);
+    transition: all 0.15s;
+    font-size: 0.80rem;
+    line-height: 1.3;
+  }
+  .tier-btn .tb-label { font-weight: 700; display: block; font-size: 0.88rem; }
+  .tier-btn .tb-sub   { opacity: 0.7; font-size: 0.72rem; }
+
+  .tier-btn[data-tier="baseline"]  { border-color: var(--border); color: var(--base); }
+  .tier-btn[data-tier="superstar"] { border-color: var(--border); color: var(--super); }
+  .tier-btn[data-tier="elite"]     { border-color: var(--border); color: var(--elite); }
+
+  .tier-btn[data-tier="baseline"].selected  { background: var(--base-bg);  border-color: var(--base);  color: var(--blue-dark); }
+  .tier-btn[data-tier="superstar"].selected { background: var(--super-bg); border-color: var(--super); color: #0c4a6e; }
+  .tier-btn[data-tier="elite"].selected     { background: var(--elite-bg); border-color: var(--elite); color: #4c1d95; }
+
+  /* ── Signal badge ── */
+  .badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .badge-elite     { background: var(--elite-bg); color: var(--elite); }
+  .badge-superstar { background: var(--super-bg); color: var(--super); }
+  .badge-baseline  { background: var(--base-bg);  color: var(--base); }
+
+  /* ── Result card ── */
+  #result { display: none; }
+
+  .result-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .result-sym   { font-size: 1.5rem; font-weight: 800; color: var(--blue-dark); }
+  .result-name  { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+  .result-meta  { text-align: right; font-size: 0.78rem; color: var(--text-muted); }
+  .result-meta strong { display: block; font-size: 1.0rem; color: var(--text); }
+
+  /* ── Levels strip ── */
+  .levels {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .level-box {
+    border-radius: 7px;
+    padding: 11px 13px;
+    text-align: center;
+  }
+  .level-box .lv-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; margin-bottom: 4px; }
+  .level-box .lv-val   { font-size: 1.15rem; font-weight: 700; }
+  .level-box .lv-sub   { font-size: 0.72rem; opacity: 0.7; margin-top: 2px; }
+
+  .lv-entry { background: var(--blue-light); }
+  .lv-sl    { background: var(--red-bg);   }
+  .lv-sl .lv-val    { color: var(--red); }
+  .lv-tp    { background: var(--green-bg); }
+  .lv-tp .lv-val    { color: var(--green); }
+
+  /* ── Sizing grid ── */
+  .sizing-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  @media (max-width: 440px) { .sizing-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .sz-col {
+    border-radius: 7px;
+    border: 2px solid transparent;
+    padding: 12px 10px;
+    text-align: center;
+    background: #f8fafc;
+  }
+  .sz-col.recommended { border-color: var(--blue-accent); background: var(--blue-light); }
+  .sz-col .sz-pct     { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+  .sz-col .sz-shares  { font-size: 1.25rem; font-weight: 800; color: var(--blue-dark); }
+  .sz-col .sz-unit    { font-size: 0.65rem; color: var(--text-muted); margin-bottom: 4px; }
+  .sz-col .sz-val     { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+  .sz-col .sz-acct    { font-size: 0.68rem; color: var(--text-muted); }
+  .sz-col .sz-rec     { font-size: 0.63rem; font-weight: 700; margin-top: 5px; padding: 2px 5px; border-radius: 4px; background: var(--blue-accent); color: #fff; display: inline-block; }
+  .sz-col .sz-nofit   { font-size: 0.78rem; color: var(--text-muted); font-style: italic; }
+
+  /* ── ATR & metadata row ── */
+  .meta-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .meta-chip {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 11px;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+  .meta-chip strong { color: var(--text); }
+
+  /* ── Warning banner ── */
+  .banner {
+    border-radius: 7px;
+    padding: 10px 14px;
+    font-size: 0.80rem;
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .banner-amber { background: var(--amber-bg); color: var(--amber); }
+  .banner-signal { background: var(--green-bg); color: var(--green); }
+
+  /* ── Empty / loading states ── */
+  #result-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 32px 0 8px;
+    font-size: 0.88rem;
+  }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BB Bounce + MACD Cross — Position Sizer</h1>
+  <span class="subtitle">S&amp;P 500 · All Tiers</span>
+  <span id="data-status">Loading data…</span>
+</header>
+
+<div class="container">
+
+  <!-- Inputs -->
+  <div class="card">
+    <div class="card-title">Inputs</div>
+    <div class="inputs-grid">
+
+      <!-- Account size -->
+      <div class="field">
+        <label for="account">Account Size ($)</label>
+        <input type="number" id="account" min="1000" step="1000" placeholder="e.g. 50000">
+      </div>
+
+      <!-- Tier selector -->
+      <div class="field">
+        <label>Strategy Tier</label>
+        <div class="tier-row">
+          <button class="tier-btn selected" data-tier="baseline">
+            <span class="tb-label">Baseline</span>
+            <span class="tb-sub">1% risk</span>
+          </button>
+          <button class="tier-btn" data-tier="superstar">
+            <span class="tb-label">Superstar</span>
+            <span class="tb-sub">2% risk</span>
+          </button>
+          <button class="tier-btn" data-tier="elite">
+            <span class="tb-label">Elite</span>
+            <span class="tb-sub">3% risk</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Ticker search (full width) -->
+      <div class="field full">
+        <label for="ticker-search">Ticker</label>
+        <div class="ticker-wrap">
+          <input type="text" id="ticker-search" autocomplete="off" spellcheck="false"
+                 placeholder="Type to search symbol or company name…">
+          <div class="dropdown" id="ticker-dropdown"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="card" id="result">
+    <div class="card-title">Position Sizing</div>
+
+    <div class="result-header">
+      <div>
+        <div class="result-sym" id="r-sym">—</div>
+        <div class="result-name" id="r-name"></div>
+      </div>
+      <div class="result-meta">
+        <div id="r-badge"></div>
+        <strong id="r-price">—</strong>
+        <div id="r-date"></div>
+      </div>
+    </div>
+
+    <div class="levels">
+      <div class="level-box lv-entry">
+        <div class="lv-label">Entry</div>
+        <div class="lv-val" id="r-entry">—</div>
+        <div class="lv-sub">today's close</div>
+      </div>
+      <div class="level-box lv-sl">
+        <div class="lv-label">Stop Loss</div>
+        <div class="lv-val" id="r-sl">—</div>
+        <div class="lv-sub" id="r-sl-sub">−1.5× ATR</div>
+      </div>
+      <div class="level-box lv-tp">
+        <div class="lv-label">Take Profit</div>
+        <div class="lv-val" id="r-tp">—</div>
+        <div class="lv-sub" id="r-tp-sub">+3.0× ATR</div>
+      </div>
+    </div>
+
+    <div class="card-title" style="margin-bottom:10px;">Shares by Risk %</div>
+    <div class="sizing-grid" id="r-sizing-grid"></div>
+
+    <div class="meta-row">
+      <div class="meta-chip">ATR <strong id="r-atr">—</strong></div>
+      <div class="meta-chip">ATR% <strong id="r-atrpct">—</strong></div>
+      <div class="meta-chip">EMA200 dist <strong id="r-ema">—</strong></div>
+      <div class="meta-chip">R:R <strong>1 : 2</strong></div>
+    </div>
+
+    <div id="r-signal-banner" class="banner banner-signal" style="display:none"></div>
+    <div id="r-conc-banner"   class="banner banner-amber"  style="display:none"></div>
+  </div>
+
+  <div id="result-empty" style="display:none">
+    Select a ticker above to see position sizing.
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const SIZER_URL = 'https://raw.githubusercontent.com/Svermes/bbmacd-data/main/sizer_data.json';
+const REC_PCT   = { baseline: 1, superstar: 2, elite: 3 };
+const CONC_WARN = 25; // % of account — show warning above this
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let sizerData   = null;   // full JSON from sizer_data.json
+let symbolMap   = {};     // sym -> entry object
+let allSymbols  = [];     // sorted array of entry objects
+let selectedSym = null;
+let selectedTier = 'baseline';
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const statusEl   = document.getElementById('data-status');
+const searchEl   = document.getElementById('ticker-search');
+const dropdownEl = document.getElementById('ticker-dropdown');
+const resultCard = document.getElementById('result');
+const resultEmpty= document.getElementById('result-empty');
+
+// ── Load sizer data ───────────────────────────────────────────────────────────
+async function loadData() {
+  statusEl.textContent = '⏳ Loading…';
+  statusEl.className   = '';
+  try {
+    const res  = await fetch(SIZER_URL + '?_=' + Date.now());
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    sizerData   = await res.json();
+    symbolMap   = {};
+    allSymbols  = sizerData.symbols || [];
+    allSymbols.forEach(s => { symbolMap[s.symbol] = s; });
+
+    const scanDate = sizerData.scanDate || '';
+    const today    = new Date().toISOString().slice(0, 10);
+    const isStale  = scanDate < today && isWeekday(today);
+
+    statusEl.textContent = `Data: ${scanDate} · ${allSymbols.length} symbols`;
+    if (isStale) {
+      statusEl.className   = 'stale';
+      statusEl.textContent += ' ⚠ (awaiting today's run)';
+    }
+
+    // Restore saved account value
+    const saved = localStorage.getItem('bbmacd_account');
+    if (saved) document.getElementById('account').value = saved;
+
+  } catch (err) {
+    statusEl.textContent = '✗ Failed to load data';
+    statusEl.className   = 'error';
+    console.error('Sizer data load error:', err);
+  }
+}
+
+function isWeekday(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  const day = d.getUTCDay();
+  return day >= 1 && day <= 5;
+}
+
+// ── Tier buttons ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.tier-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedTier = btn.dataset.tier;
+    if (selectedSym) renderResult();
+  });
+});
+
+// ── Account input ─────────────────────────────────────────────────────────────
+document.getElementById('account').addEventListener('input', () => {
+  const val = document.getElementById('account').value;
+  if (val) localStorage.setItem('bbmacd_account', val);
+  if (selectedSym) renderResult();
+});
+
+// ── Ticker search ─────────────────────────────────────────────────────────────
+let ddActiveIdx = -1;
+
+searchEl.addEventListener('input', () => {
+  ddActiveIdx = -1;
+  updateDropdown(searchEl.value.trim());
+});
+
+searchEl.addEventListener('keydown', e => {
+  const items = dropdownEl.querySelectorAll('.dd-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    ddActiveIdx = Math.min(ddActiveIdx + 1, items.length - 1);
+    highlightDD(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    ddActiveIdx = Math.max(ddActiveIdx - 1, 0);
+    highlightDD(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const active = ddActiveIdx >= 0 ? items[ddActiveIdx] : items[0];
+    if (active) selectSymbol(active.dataset.sym);
+  } else if (e.key === 'Escape') {
+    closeDropdown();
+  }
+});
+
+searchEl.addEventListener('focus', () => {
+  if (searchEl.value.trim()) updateDropdown(searchEl.value.trim());
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ticker-wrap')) closeDropdown();
+});
+
+function highlightDD(items) {
+  items.forEach((el, i) => {
+    el.classList.toggle('active', i === ddActiveIdx);
+    if (i === ddActiveIdx) el.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function updateDropdown(query) {
+  if (!allSymbols.length || !query) { closeDropdown(); return; }
+
+  const q = query.toUpperCase();
+  // Prioritize exact/prefix symbol match, then name contains
+  const matches = allSymbols.filter(s =>
+    s.symbol.startsWith(q) || s.name.toUpperCase().includes(query.toUpperCase())
+  ).slice(0, 30);
+
+  // Sort: symbol-prefix matches first
+  matches.sort((a, b) => {
+    const aPrefix = a.symbol.startsWith(q) ? 0 : 1;
+    const bPrefix = b.symbol.startsWith(q) ? 0 : 1;
+    if (aPrefix !== bPrefix) return aPrefix - bPrefix;
+    return a.symbol.localeCompare(b.symbol);
+  });
+
+  if (!matches.length) { closeDropdown(); return; }
+
+  dropdownEl.innerHTML = matches.map(s => {
+    const badge = s.hasSignal ? `<span class="badge badge-${s.signalTier || 'baseline'}">${tierLabel(s.signalTier)}</span>` : '';
+    return `<div class="dd-item" data-sym="${s.symbol}">
+      <span class="dd-sym">${s.symbol}</span>
+      <span class="dd-name">${s.name}</span>
+      <span class="dd-badge">${badge}</span>
+    </div>`;
+  }).join('');
+
+  dropdownEl.querySelectorAll('.dd-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      selectSymbol(el.dataset.sym);
+    });
+  });
+
+  dropdownEl.classList.add('open');
+}
+
+function closeDropdown() {
+  dropdownEl.classList.remove('open');
+  dropdownEl.innerHTML = '';
+  ddActiveIdx = -1;
+}
+
+function selectSymbol(sym) {
+  selectedSym = sym;
+  const entry = symbolMap[sym];
+  if (entry) searchEl.value = `${sym}  —  ${entry.name}`;
+  closeDropdown();
+  renderResult();
+}
+
+function tierLabel(tier) {
+  if (tier === 'elite')     return 'ELITE';
+  if (tier === 'superstar') return 'SUPERSTAR';
+  return 'SIGNAL';
+}
+
+// ── Render result ─────────────────────────────────────────────────────────────
+function renderResult() {
+  if (!selectedSym || !symbolMap[selectedSym]) {
+    resultCard.style.display  = 'none';
+    resultEmpty.style.display = 'block';
+    return;
+  }
+
+  const d       = symbolMap[selectedSym];
+  const account = parseFloat(document.getElementById('account').value) || 0;
+  const recPct  = REC_PCT[selectedTier];
+
+  resultCard.style.display  = 'block';
+  resultEmpty.style.display = 'none';
+
+  // Header
+  document.getElementById('r-sym').textContent  = d.symbol;
+  document.getElementById('r-name').textContent = d.name;
+  document.getElementById('r-price').textContent = `$${d.close.toFixed(2)}`;
+  document.getElementById('r-date').textContent  = d.date || '';
+
+  // Signal badge
+  const badgeEl = document.getElementById('r-badge');
+  if (d.hasSignal && d.signalTier) {
+    badgeEl.innerHTML = `<span class="badge badge-${d.signalTier}">${tierLabel(d.signalTier)} signal today</span>`;
+  } else {
+    badgeEl.innerHTML = '';
+  }
+
+  // Levels
+  document.getElementById('r-entry').textContent  = `$${d.close.toFixed(2)}`;
+  document.getElementById('r-sl').textContent     = `$${d.sl.toFixed(2)}`;
+  document.getElementById('r-sl-sub').textContent = `−${(d.close - d.sl).toFixed(2)} (−${((d.close - d.sl) / d.close * 100).toFixed(1)}%)`;
+  document.getElementById('r-tp').textContent     = `$${d.tp.toFixed(2)}`;
+  document.getElementById('r-tp-sub').textContent = `+${(d.tp - d.close).toFixed(2)} (+${((d.tp - d.close) / d.close * 100).toFixed(1)}%)`;
+
+  // ATR row
+  document.getElementById('r-atr').textContent    = `$${d.atr.toFixed(2)}`;
+  document.getElementById('r-atrpct').textContent = `${d.atrPct.toFixed(1)}%`;
+  document.getElementById('r-ema').textContent    = d.distEma200Pct != null
+    ? `+${d.distEma200Pct.toFixed(1)}%` : 'N/A';
+
+  // Sizing grid
+  const riskPerShare = d.close - d.sl;
+  const grid = document.getElementById('r-sizing-grid');
+  grid.innerHTML = [1, 2, 3, 4].map(pct => {
+    const isRec = pct === recPct;
+    if (!account || account <= 0) {
+      return `<div class="sz-col${isRec ? ' recommended' : ''}">
+        <div class="sz-pct">${pct}% risk</div>
+        <div class="sz-shares">—</div>
+        <div class="sz-unit">shares</div>
+        <div class="sz-acct">Enter account size</div>
+        ${isRec ? `<div class="sz-rec">REC · ${selectedTier}</div>` : ''}
+      </div>`;
+    }
+    const shares = Math.floor((account * pct / 100) / riskPerShare);
+    const posVal = shares * d.close;
+    const accPct = (posVal / account * 100).toFixed(0);
+    if (shares < 1) {
+      return `<div class="sz-col${isRec ? ' recommended' : ''}">
+        <div class="sz-pct">${pct}% risk</div>
+        <div class="sz-shares sz-nofit">&lt; 1 share</div>
+        <div class="sz-acct">stop too wide</div>
+        ${isRec ? `<div class="sz-rec">REC · ${selectedTier}</div>` : ''}
+      </div>`;
+    }
+    return `<div class="sz-col${isRec ? ' recommended' : ''}">
+      <div class="sz-pct">${pct}% risk</div>
+      <div class="sz-shares">${shares}</div>
+      <div class="sz-unit">shares</div>
+      <div class="sz-val">$${posVal.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
+      <div class="sz-acct">${accPct}% of acct</div>
+      ${isRec ? `<div class="sz-rec">REC · ${selectedTier.toUpperCase()}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Signal banner
+  const sigBanner = document.getElementById('r-signal-banner');
+  if (d.hasSignal && d.signalTier) {
+    const tier = d.signalTier;
+    const wr   = tier === 'elite' ? '73.9%' : tier === 'superstar' ? '66.7%' : '60.2%';
+    const extra = d.rvolBbTouch != null ? `  ·  RVOL@BB ${d.rvolBbTouch.toFixed(2)}` : '';
+    sigBanner.style.display = 'flex';
+    sigBanner.innerHTML     = `✅ <span><strong>${d.symbol} has a ${tier.toUpperCase()} signal today.</strong> Historical WR: ${wr}${extra}</span>`;
+  } else {
+    sigBanner.style.display = 'none';
+  }
+
+  // Concentration warning
+  const concBanner = document.getElementById('r-conc-banner');
+  if (account > 0) {
+    const recShares = Math.floor((account * recPct / 100) / riskPerShare);
+    const recPosVal = recShares * d.close;
+    const recAccPct = (recPosVal / account * 100);
+    if (recAccPct > CONC_WARN && recShares >= 1) {
+      concBanner.style.display = 'flex';
+      concBanner.innerHTML = `⚠ <span>Recommended position is <strong>${recAccPct.toFixed(0)}% of account</strong>. Consider splitting into smaller entries or reducing to 1% risk.</span>`;
+    } else {
+      concBanner.style.display = 'none';
+    }
+  } else {
+    concBanner.style.display = 'none';
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
