@@ -255,6 +255,28 @@
   .sz-col .sz-rec     { font-size: 0.63rem; font-weight: 700; margin-top: 5px; padding: 2px 5px; border-radius: 4px; background: var(--blue-accent); color: #fff; display: inline-block; }
   .sz-col .sz-nofit   { font-size: 0.78rem; color: var(--text-muted); font-style: italic; }
 
+  /* ── P&L summary ── */
+  .pnl-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .pnl-box {
+    border-radius: 7px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .pnl-box .pnl-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; opacity: 0.75; }
+  .pnl-box .pnl-val   { font-size: 1.2rem; font-weight: 800; }
+  .pnl-box .pnl-sub   { font-size: 0.72rem; opacity: 0.7; }
+  .pnl-profit { background: var(--green-bg); }
+  .pnl-profit .pnl-val  { color: var(--green); }
+  .pnl-loss   { background: var(--red-bg); }
+  .pnl-loss .pnl-val    { color: var(--red); }
+
   /* ── ATR & metadata row ── */
   .meta-row {
     display: flex;
@@ -398,6 +420,19 @@
 
     <div class="card-title" style="margin-bottom:10px;">Shares by Risk %</div>
     <div class="sizing-grid" id="r-sizing-grid"></div>
+
+    <div class="pnl-row" id="r-pnl-row" style="display:none">
+      <div class="pnl-box pnl-profit">
+        <div class="pnl-label">Max Profit (TP hit)</div>
+        <div class="pnl-val" id="r-pnl-profit">—</div>
+        <div class="pnl-sub" id="r-pnl-profit-sub"></div>
+      </div>
+      <div class="pnl-box pnl-loss">
+        <div class="pnl-label">Max Loss (SL hit)</div>
+        <div class="pnl-val" id="r-pnl-loss">—</div>
+        <div class="pnl-sub" id="r-pnl-loss-sub"></div>
+      </div>
+    </div>
 
     <div class="meta-row">
       <div class="meta-chip">ATR <strong id="r-atr">—</strong></div>
@@ -669,6 +704,27 @@ function renderResult() {
       ${isRec ? `<div class="sz-rec">REC · ${selectedTier.toUpperCase()}</div>` : ''}
     </div>`;
   }).join('');
+
+  // P&L summary (recommended position)
+  const pnlRow = document.getElementById('r-pnl-row');
+  if (account > 0) {
+    const recShares  = Math.floor((account * recPct / 100) / riskPerShare);
+    if (recShares >= 1) {
+      const maxProfit  = recShares * (d.tp - d.close);
+      const maxLoss    = recShares * (d.close - d.sl);
+      const profitPct  = (maxProfit / account * 100).toFixed(1);
+      const lossPct    = (maxLoss   / account * 100).toFixed(1);
+      document.getElementById('r-pnl-profit').textContent     = `+$${maxProfit.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+      document.getElementById('r-pnl-profit-sub').textContent = `${recShares} shares · +${profitPct}% of account`;
+      document.getElementById('r-pnl-loss').textContent       = `−$${maxLoss.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+      document.getElementById('r-pnl-loss-sub').textContent   = `${recShares} shares · −${lossPct}% of account`;
+      pnlRow.style.display = 'grid';
+    } else {
+      pnlRow.style.display = 'none';
+    }
+  } else {
+    pnlRow.style.display = 'none';
+  }
 
   // Signal banner
   const sigBanner = document.getElementById('r-signal-banner');
