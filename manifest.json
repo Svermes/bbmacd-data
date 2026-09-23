@@ -1,9 +1,9 @@
 {
   "source_repo": "Svermes/bbmacd-scanner",
   "source_path": "data/history.csv",
-  "source_blob_sha": "5e21b0b8dd46baf5f28bd321b127480e69e7dcf7",
-  "source_commit": "ac30004fec1c08f6db1f070e8d2371323f9f8fde",
-  "generated_at": "2026-09-22T22:56:54.121Z",
+  "source_blob_sha": "b150b4ea9ed0cba806121d31c441318b6a92df55",
+  "source_commit": "b74b7f76c0dc0bd887bd8c553ec448a396a41e6e",
+  "generated_at": "2026-09-23T01:29:06.148Z",
   "price_precision": "2dp (rounded from float64; volume unchanged)",
   "columns": [
     "date",
