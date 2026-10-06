@@ -1,9 +1,9 @@
 {
   "source_repo": "Svermes/bbmacd-scanner",
   "source_path": "data/history.csv",
-  "source_blob_sha": "5852c3c7481fe20474ff27c5906acb78d69ef3d7",
-  "source_commit": "0d47a8bf7e5dc055cef906011e65e6efafb1a1cf",
-  "generated_at": "2026-10-06T01:19:04.331Z",
+  "source_blob_sha": "63bf8b33de03e404588f3143123d463276abd931",
+  "source_commit": "2e904ba9de086418da234b7bfc7cb4163fa6f9a3",
+  "generated_at": "2026-10-06T02:42:03.751Z",
   "price_precision": "2dp (rounded from float64; volume unchanged)",
   "columns": [
     "date",
@@ -17,15 +17,15 @@
   "symbols": 514,
   "full": {
     "file": "history.csv",
-    "rows": 672452,
+    "rows": 672954,
     "first_date": "2021-05-24",
-    "last_date": "2026-10-02"
+    "last_date": "2026-10-05"
   },
   "recent": {
     "file": "history_recent.csv",
     "rows": 150915,
-    "first_date": "2025-07-25",
-    "last_date": "2026-10-02",
+    "first_date": "2025-07-28",
+    "last_date": "2026-10-05",
     "window_trading_days": 300
   }
 }
